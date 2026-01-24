@@ -1,5 +1,5 @@
 {
-  "name": "Lucem Starling Flight Deck",
+  "name": "Lucem Starling",
   "short_name": "Starling",
   "start_url": "index.html",
   "display": "standalone",
@@ -7,7 +7,7 @@
   "theme_color": "#22d3ee",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/1043/1043514.png",
+      "src": "icon.png",
       "sizes": "512x512",
       "type": "image/png"
     }
