@@ -1,7 +1,6 @@
 const thread = document.createElement("div");
 thread.id = "lightpath-thread";
-thread.className =
-  "fixed left-1/2 top-0 h-screen w-[2px] bg-gradient-to-b from-slate-300 via-slate-400 to-slate-500 opacity-40 z-0";
+thread.className = "fixed left-1/2 top-0 h-screen w-[2px] bg-slate-500 opacity-40 z-0";
 document.body.prepend(thread);
 
 const igniteButton = document.getElementById("ignite");
@@ -16,24 +15,55 @@ const mirrorReadout = document.getElementById("mirror-readout-zone");
 const interpreterGlyphs = document.getElementById("interpreter-glyphs");
 const arcEyesDisplay = document.getElementById("arc-eyes-display");
 const mirrorDetailSections = document.querySelectorAll("[data-mirror]");
-const apertureValue = document.getElementById("aperture-val");
-const fidelityBar = document.getElementById("fidelity-bar");
-const vectorNeedle = document.getElementById("vector-needle");
-const vectorData = document.getElementById("vector-data");
 const braidInput = document.getElementById("braid-input");
-const auriStream = document.getElementById("stream-auri");
-const geminiStream = document.getElementById("stream-gemini");
-const wardenStream = document.getElementById("stream-warden");
 
 const resonanceStates = {
-  calm: {
-    threadClass:
-      "fixed left-1/2 top-0 h-screen w-[2px] bg-gradient-to-b from-cyan-400 via-teal-300 to-indigo-500 opacity-60 z-0 breath-loop",
-    sigilClass:
-      "absolute h-full w-full rounded-full border border-cyan-500/40 animate-[spin_20s_linear_infinite] sigil-glow",
-    note: "Mission state: Veil-Teal calm.",
-    opacity: "0.6",
-  },
+  calm: { threadClass: "fixed left-1/2 top-0 h-screen w-[2px] bg-gradient-to-b from-cyan-400 via-teal-300 to-indigo-500 opacity-60 z-0 breath-loop", note: "Mission state: Veil-Teal calm." },
+  stressed: { threadClass: "fixed left-1/2 top-0 h-screen w-[4px] bg-gradient-to-b from-red-500 via-orange-400 to-yellow-300 opacity-90 z-0 fractured", note: "Mission state: Old World stress." },
+  witness: { threadClass: "fixed left-1/2 top-0 h-screen w-[2px] bg-slate-500 opacity-40 z-0", note: "Mission state: Witness hold." }
+};
+
+function applyResonance(state) {
+  const nextState = resonanceStates[state] || resonanceStates.witness;
+  thread.className = nextState.threadClass;
+  note.textContent = nextState.note;
+}
+
+function shiftMirrorPhase(index) {
+  mirrorIndexDisp.textContent = index;
+  mirrorLevelDisp.textContent = Math.round((index / 16) * 9);
+  
+  // Update Header
+  mirrorHeader.textContent = `SYSTEM: MIRROR_${index} // COHERENCE: SYNCED`;
+
+  // Hide/Show Mirror Details
+  mirrorDetailSections.forEach(section => {
+    section.classList.toggle("hidden", Number(section.dataset.mirror) !== index);
+  });
+
+  // Unique Mirror Effects
+  thread.classList.toggle("double-helix", index === 16);
+  interpreterGlyphs.classList.toggle("active", index === 9);
+  arcEyesDisplay.classList.toggle("opacity-0", index !== 12 && index !== 15);
+  
+  if(index === 12) applyResonance('stressed');
+  if(index === 13) applyResonance('witness');
+}
+
+mirrorSlider.addEventListener("input", (e) => shiftMirrorPhase(Number(e.target.value)));
+
+resonanceButtons.forEach(btn => btn.addEventListener("click", () => applyResonance(btn.dataset.state)));
+
+braidInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter" && braidInput.value.trim()) {
+    const msg = document.createElement("p");
+    msg.innerHTML = `<span class="opacity-40">[${new Date().toLocaleTimeString()}]</span> ${braidInput.value}`;
+    document.getElementById("stream-gemini").appendChild(msg);
+    braidInput.value = "";
+  }
+});
+
+shiftMirrorPhase(13);
   stressed: {
     threadClass:
       "fixed left-1/2 top-0 h-screen w-[4px] bg-gradient-to-b from-red-500 via-orange-400 to-yellow-300 opacity-90 z-0 fractured",
