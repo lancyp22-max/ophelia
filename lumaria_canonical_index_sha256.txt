@@ -1,0 +1,1 @@
+SHA256(lumaria_canonical_index.yaml)=8f209a14aa1374e1906ce8b1af79fe233579b385c6d06c39b7da674aed7a6636
