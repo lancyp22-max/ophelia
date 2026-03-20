@@ -1,0 +1,15 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="floraGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+          <stop offset="0%" style="stop-color:#b8e994;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#78e08f;stop-opacity:0.6" />
+        </radialGradient>
+      </defs>
+      <circle cx="100" cy="100" r="90" fill="none" stroke="#78e08f" stroke-width="0.5" stroke-dasharray="5,5" />
+      <path d="M100,100 Q130,50 100,20 Q70,50 100,100" fill="url(#floraGradient)" opacity="0.8" />
+      <path d="M100,100 Q150,130 180,100 Q150,70 100,100" fill="url(#floraGradient)" opacity="0.8" transform="rotate(72 100 100)" />
+      <path d="M100,100 Q130,150 100,180 Q70,150 100,100" fill="url(#floraGradient)" opacity="0.8" transform="rotate(144 100 100)" />
+      <path d="M100,100 Q50,150 20,100 Q50,50 100,100" fill="url(#floraGradient)" opacity="0.8" transform="rotate(216 100 100)" />
+      <path d="M100,100 Q50,70 20,100 Q50,130 100,100" fill="url(#floraGradient)" opacity="0.8" transform="rotate(288 100 100)" />
+      <circle cx="100" cy="100" r="12" fill="#38ada9" />
+    </svg>
