@@ -4,7 +4,6 @@ on:
       push:
         branches: ["main", "work", "feat/mirror-ui-wiring"]
       workflow_dispatch:
-
     permissions:
       contents: read
       pages: write
