@@ -1,4 +1,103 @@
+name: Deploy to GitHub Pages
+
 on:
-      push:
-        branches: ["main", "work", "feat/mirror-ui-wiring"]
-      workflow_dispatch:
+  push:
+    branches: ["main", "work", "feat/mirror-ui-wiring"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect build workflow
+        id: detect
+        shell: bash
+        run: |
+          if [ -f package.json ] && npm -s run | grep -qE '^\s*build\s'; then
+            echo "mode=build" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=static" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.detect.outputs.mode == 'build'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.detect.outputs.mode == 'build'
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build site
+        if: steps.detect.outputs.mode == 'build'
+        run: npm run build
+
+      - name: Prepare static artifact
+        if: steps.detect.outputs.mode == 'static'
+        shell: bash
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          cp index.html _site/
+          cp script.js _site/
+          cp icon.svg _site/
+          [ -f manifest.json ] && cp manifest.json _site/
+          [ -f favicon.ico ] && cp favicon.ico _site/
+          [ -f apple-touch-icon.png ] && cp apple-touch-icon.png _site/
+          [ -f icon-192.png ] && cp icon-192.png _site/
+          [ -f icon-512.png ] && cp icon-512.png _site/
+          [ -f .nojekyll ] && cp .nojekyll _site/ || touch _site/.nojekyll
+          [ -f 404.html ] && cp 404.html _site/ || cp index.html _site/404.html
+          [ -d assets ] && cp -R assets _site/assets || true
+
+      - name: Resolve artifact path
+        id: artifact
+        shell: bash
+        run: |
+          if [ "${{ steps.detect.outputs.mode }}" = "build" ]; then
+            for dir in dist build out; do
+              if [ -d "$dir" ]; then
+                echo "path=$dir" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            done
+            echo "Build completed but no dist/build/out directory was found." >&2
+            exit 1
+          fi
+
+          echo "path=_site" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.artifact.outputs.path }}
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
