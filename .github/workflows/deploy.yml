@@ -21,7 +21,7 @@ name: Deploy to GitHub Pages
           - uses: actions/checkout@v4
           - name: Build
             run: |
-              mkdir _site
+              mkdir -p _site
               echo "<h1>Placeholder for build</h1>" > _site/index.html
               echo "Placeholder for script" > _site/script.js
           - name: Upload artifact
