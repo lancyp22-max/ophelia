@@ -87,6 +87,7 @@ const STORAGE_KEYS = {
 };
 
 const MIRROR_RANGE = { min: 0, max: 18 };
+const PRIMARY_TASK_NAME = "Ophelia";
 
 const resonanceStates = {
   calm: {
@@ -116,7 +117,7 @@ const resonanceStates = {
 };
 
 const missions = [
-  { text: "Render the Ophelia Ring SVG module.", state: "calm" },
+  { text: `Render the ${PRIMARY_TASK_NAME} SVG module.`, state: "calm" },
   { text: "Map ARC-Eyes telemetry to cockpit HUD.", state: "stressed" },
   { text: "Stabilize BREATH_ANCHOR waveform meter.", state: "witness" },
 ];
@@ -603,8 +604,11 @@ function writeStorage(key, value) {
 
 function normalizeLegacySigilCopy() {
   const replacements = [
-    { from: "Create visual SVG for Sigil Ring", to: "CREATE OPHELIA SVG" },
-    { from: "Render the Sigil Ring SVG module.", to: "Render the Ophelia Ring SVG module." },
+    { from: "Create visual SVG for Sigil Ring", to: PRIMARY_TASK_NAME.toUpperCase() },
+    { from: "Create visual Svg for Sigil ring", to: PRIMARY_TASK_NAME.toUpperCase() },
+    { from: "CREATE OPHELIA SVG", to: PRIMARY_TASK_NAME.toUpperCase() },
+    { from: "Render the Sigil Ring SVG module.", to: `Render the ${PRIMARY_TASK_NAME} SVG module.` },
+    { from: "Render the Ophelia Ring SVG module.", to: `Render the ${PRIMARY_TASK_NAME} SVG module.` },
   ];
 
   const textNodes = document.querySelectorAll("button, p, span, h1, h2, h3, h4, h5, h6");
@@ -1067,7 +1071,7 @@ if (igniteButton) {
 }
 
 if (igniteButton) {
-  igniteButton.textContent = "CREATE OPHELIA SVG";
+  igniteButton.textContent = PRIMARY_TASK_NAME.toUpperCase();
 }
 
 resonanceButtons.forEach((button) => {
