@@ -1338,7 +1338,7 @@ if (screenExitButton) {
 modeButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const target = button.dataset.screen ?? "home";
-    if (target === "system" || target === "nav") {
+    if (target === "system" || target === "nav" || target === "chat" || target === "home") {
       setScreen(target);
       return;
     }
