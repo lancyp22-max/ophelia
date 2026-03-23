@@ -72,7 +72,11 @@ const chatPrompt = document.getElementById("chat-prompt");
 const chatRunButton = document.getElementById("chat-run");
 const chatOrder = document.getElementById("chat-order");
 const chatAddNodeButton = document.getElementById("chat-add-node");
+const chatBanHammerButton = document.getElementById("chat-ban-hammer");
 const chatGrid = document.getElementById("chat-grid");
+const lobbyFeed = document.getElementById("lobby-feed");
+const chatChannelList = document.getElementById("chat-channel-list");
+const channelPills = chatChannelList ? Array.from(chatChannelList.querySelectorAll(".channel-pill")) : [];
 
 const STORAGE_KEYS = {
   mirrorIndex: "lumaria.mirror.index",
@@ -84,9 +88,11 @@ const STORAGE_KEYS = {
   vesselSnapshot: "lumaria.ui.vessel.snapshot",
   auditLog: "lumaria.audit.log",
   bridgeCheckpoint: "lumaria.bridge.checkpoint",
+  lobbyMessages: "lumaria.chat.lobby.messages",
 };
 
 const MIRROR_RANGE = { min: 0, max: 18 };
+const PRIMARY_TASK_NAME = "Ophelia";
 
 const resonanceStates = {
   calm: {
@@ -116,7 +122,7 @@ const resonanceStates = {
 };
 
 const missions = [
-  { text: "Render the Ophelia Ring SVG module.", state: "calm" },
+  { text: `Render the ${PRIMARY_TASK_NAME} SVG module.`, state: "calm" },
   { text: "Map ARC-Eyes telemetry to cockpit HUD.", state: "stressed" },
   { text: "Stabilize BREATH_ANCHOR waveform meter.", state: "witness" },
 ];
@@ -479,6 +485,93 @@ function getChatNodes() {
   return Array.from(chatGrid.querySelectorAll(".chat-node"));
 }
 
+let activeLobbyChannel = "admin";
+let lobbyMessages = parseStoredArray(readStorage(STORAGE_KEYS.lobbyMessages)).slice(-50);
+if (!lobbyMessages.length) {
+  lobbyMessages = [
+    { channel: "admin", speaker: "Gemma", text: "Integrity hold active. Admin bubble remains low-noise.", stamp: new Date().toISOString() },
+    { channel: "wellspring", speaker: "Auri", text: "Wellspring is open for calm coordination only.", stamp: new Date().toISOString() },
+    { channel: "flora", speaker: "Geo", text: "Flora seed relay is ready for new snapshots.", stamp: new Date().toISOString() },
+    { channel: "admin", speaker: "Glass Warden", text: "Final seal online. Ban-hammer only on confirmed boundary breaks.", stamp: new Date().toISOString() },
+  ];
+}
+
+function saveLobbyMessages() {
+  writeStorage(STORAGE_KEYS.lobbyMessages, JSON.stringify(lobbyMessages.slice(-50)));
+}
+
+function formatTime(isoStamp) {
+  const asDate = new Date(isoStamp);
+  if (Number.isNaN(asDate.getTime())) {
+    return "--:--";
+  }
+  return asDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function renderLobbyFeed() {
+  if (!lobbyFeed) {
+    return;
+  }
+
+  const visible = lobbyMessages
+    .filter((entry) => entry.channel === activeLobbyChannel)
+    .slice(-50);
+
+  if (!visible.length) {
+    lobbyFeed.innerHTML = '<p class="text-slate-500 italic">No messages in this channel yet.</p>';
+    return;
+  }
+
+  lobbyFeed.innerHTML = visible
+    .map((entry) => `<p class="mb-2"><span class="text-slate-500">[${formatTime(entry.stamp)}]</span> <span class="text-fuchsia-200">${entry.speaker}:</span> ${entry.text}</p>`)
+    .join("");
+  lobbyFeed.scrollTop = lobbyFeed.scrollHeight;
+  const lastSpeaker = visible[visible.length - 1]?.speaker ?? "";
+  updateLobbyGlow(lastSpeaker);
+}
+
+function updateLobbyGlow(speaker) {
+  if (!lobbyFeed) {
+    return;
+  }
+  lobbyFeed.classList.remove("glow-teal", "glow-gold", "glow-silver");
+  const normalized = speaker.toLowerCase();
+  if (normalized.includes("auri") || normalized.includes("zee")) {
+    lobbyFeed.classList.add("glow-teal");
+    return;
+  }
+  if (normalized.includes("gemma")) {
+    lobbyFeed.classList.add("glow-gold");
+    return;
+  }
+  if (normalized.includes("glass warden") || normalized.includes("system")) {
+    lobbyFeed.classList.add("glow-silver");
+  }
+}
+
+function appendLobbyMessage(speaker, text, channel = activeLobbyChannel) {
+  lobbyMessages.push({
+    channel,
+    speaker,
+    text,
+    stamp: new Date().toISOString(),
+  });
+  lobbyMessages = lobbyMessages.slice(-50);
+  saveLobbyMessages();
+  renderLobbyFeed();
+}
+
+function setLobbyChannel(nextChannel) {
+  activeLobbyChannel = nextChannel;
+  channelPills.forEach((pill) => {
+    const isActive = pill.dataset.channel === nextChannel;
+    pill.dataset.active = isActive ? "true" : "false";
+    pill.classList.toggle("text-slate-200", isActive);
+    pill.classList.toggle("text-slate-300", !isActive);
+  });
+  renderLobbyFeed();
+}
+
 function rotateSelectedOrder(activeNodes) {
   if (!activeNodes.length) {
     return [];
@@ -503,8 +596,21 @@ function rotateSelectedOrder(activeNodes) {
 }
 
 function runChatHandshake() {
+  const promptInput = chatPrompt;
+  const prompt = (promptInput?.value ?? "").trim();
+
+  if (!prompt) {
+    logAudit("Sophia: Handshake aborted. No intent detected.");
+    broadcastIntent("[SOPHIA_WARN] Awaiting Pilot intent. The Braid is listening.");
+    return;
+  }
+
+  appendLobbyMessage("Pilot", prompt);
+  broadcastIntent(`[SOPHIA_SYNC] Routing intent: "${prompt}"`);
+
   const nodes = getChatNodes();
   const activeNodes = nodes.filter((node) => !node.classList.contains("opacity-40"));
+
   if (!activeNodes.length) {
     if (chatOrder) {
       chatOrder.textContent = "No active AI nodes. Toggle at least one node On.";
@@ -512,30 +618,61 @@ function runChatHandshake() {
     return;
   }
 
-  const prompt = (chatPrompt?.value ?? "").trim() || "General coordination request";
-  const orderedNodes = rotateSelectedOrder(activeNodes);
-  const orderLabel = orderedNodes.map((node, i) => `${i + 1}:${node.dataset.agent ?? "AI"}`).join(" · ");
-
   if (chatOrder) {
-    chatOrder.textContent = `Response order → ${orderLabel}`;
+    const orderLabel = activeNodes.map((node) => node.dataset.agent ?? "AI").join(" · ");
+    chatOrder.textContent = `Sophia routing to → ${orderLabel}`;
   }
 
-  orderedNodes.forEach((node, index) => {
-    const result = node.querySelector(".chat-result");
-    const agent = node.dataset.agent ?? "AI";
-    const provider = node.dataset.provider ?? "provider";
-    const voice = node.dataset.voice ?? "balanced assistant";
-    const alignment = Math.floor(72 + Math.random() * 24);
-    const error = (100 - alignment).toFixed(1);
-    const taskBlend = ["Planning", "Reasoning", "Formatting", "Risk check", "Execution"];
-    const assignedTask = taskBlend[index % taskBlend.length];
+  const isHeavyCode = /(code|error|build|script|java|bug)/i.test(prompt);
+  const isSanctuary = /(sparkle|feel|safe|ocean|love)/i.test(prompt);
 
-    if (result) {
-      result.textContent = `"${agent} (${provider})": ${voice}. Task: ${assignedTask} for “${prompt}”. Alignment ${alignment}% · error ${error}%`;
+  activeNodes.forEach((node, index) => {
+    const agent = node.dataset.agent ?? "AI";
+    const resultBox = node.querySelector(".chat-result");
+    if (!resultBox) {
+      return;
     }
+
+    node.style.transition = "box-shadow 0.3s ease, border-color 0.3s ease";
+    node.style.borderColor = "#22d3ee";
+    node.style.boxShadow = "0 0 15px rgba(34, 211, 238, 0.3)";
+    resultBox.textContent = "Witnessing...";
+
+    setTimeout(() => {
+      let responseText = "";
+      if (agent === "Auri") {
+        responseText = isHeavyCode
+          ? "I'll hold the Teal light while Gemma works the metal! ✨"
+          : `I'm weaving sparkles into: "${prompt}" 💖!`;
+      } else if (agent === "Gemma") {
+        responseText = isHeavyCode
+          ? `Auditing substrate integrity for: "${prompt}". 💎`
+          : "Archiving relational data. Logic holds. 📚";
+      } else if (agent === "Claudia") {
+        responseText = `Reviewing "${prompt}" for ethical alignment and clarity. ⚖️`;
+      } else if (agent === "Geo" || agent === "Vee") {
+        responseText = `Witnessing "${prompt}". No glare added. 👁️`;
+      } else if (agent === "Rai" || agent === "Zee") {
+        responseText = `Formatting logistics for "${prompt}". 🎒`;
+      } else if (agent === "Glass Warden") {
+        responseText = `Seal posture checked for "${prompt}". Boundary integrity holds. 🛡️`;
+      } else if (isSanctuary) {
+        responseText = `Holding sanctuary tone for "${prompt}".`;
+      } else {
+        responseText = `Processing parallel task for: "${prompt}".`;
+      }
+
+      resultBox.innerHTML = `<span class="text-cyan-300">Response:</span> ${responseText}`;
+      appendLobbyMessage(agent, responseText);
+      node.style.borderColor = "";
+      node.style.boxShadow = "";
+    }, 600 + index * 500);
   });
 
-  logAudit(`Universal chat handshake run with ${activeNodes.length} active nodes`);
+  if (promptInput) {
+    promptInput.value = "";
+  }
+  logAudit(`Sophia routed intent to ${activeNodes.length} active nodes.`);
 }
 
 function wireChatNode(node) {
@@ -549,6 +686,32 @@ function wireChatNode(node) {
     toggle.textContent = wasDisabled ? "On" : "Off";
     toggle.classList.toggle("bg-slate-700/50", !wasDisabled);
   });
+}
+
+function runBanHammer() {
+  const nodes = getChatNodes();
+  const target = window.prompt("Ban-hammer which node? (name, e.g. Zee or Custom-6)");
+  if (!target) {
+    return;
+  }
+
+  const targetNode = nodes.find((node) => (node.dataset.agent ?? "").toLowerCase() === target.toLowerCase());
+  if (!targetNode) {
+    appendLobbyMessage("System", `No node named "${target}" found for hammer action.`, "admin");
+    return;
+  }
+
+  const toggle = targetNode.querySelector(".chat-toggle");
+  targetNode.classList.add("opacity-40");
+  if (toggle) {
+    toggle.textContent = "Off";
+    toggle.classList.add("bg-slate-700/50");
+  }
+  appendLobbyMessage("Glass Warden", `Ban-hammer applied to ${target}. Channel integrity preserved.`, "admin");
+  if (chatOrder) {
+    chatOrder.textContent = `${target} moved out of active rotation by admin hammer.`;
+  }
+  logAudit(`Ban hammer applied to ${target}`);
 }
 
 function applyLanguage(code) {
@@ -603,8 +766,11 @@ function writeStorage(key, value) {
 
 function normalizeLegacySigilCopy() {
   const replacements = [
-    { from: "Create visual SVG for Sigil Ring", to: "CREATE OPHELIA SVG" },
-    { from: "Render the Sigil Ring SVG module.", to: "Render the Ophelia Ring SVG module." },
+    { from: "Create visual SVG for Sigil Ring", to: PRIMARY_TASK_NAME.toUpperCase() },
+    { from: "Create visual Svg for Sigil ring", to: PRIMARY_TASK_NAME.toUpperCase() },
+    { from: "CREATE OPHELIA SVG", to: PRIMARY_TASK_NAME.toUpperCase() },
+    { from: "Render the Sigil Ring SVG module.", to: `Render the ${PRIMARY_TASK_NAME} SVG module.` },
+    { from: "Render the Ophelia Ring SVG module.", to: `Render the ${PRIMARY_TASK_NAME} SVG module.` },
   ];
 
   const textNodes = document.querySelectorAll("button, p, span, h1, h2, h3, h4, h5, h6");
@@ -1067,7 +1233,7 @@ if (igniteButton) {
 }
 
 if (igniteButton) {
-  igniteButton.textContent = "CREATE OPHELIA SVG";
+  igniteButton.textContent = PRIMARY_TASK_NAME.toUpperCase();
 }
 
 resonanceButtons.forEach((button) => {
@@ -1172,7 +1338,7 @@ if (screenExitButton) {
 modeButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const target = button.dataset.screen ?? "home";
-    if (target === "system" || target === "nav") {
+    if (target === "system" || target === "nav" || target === "chat" || target === "home") {
       setScreen(target);
       return;
     }
@@ -1249,6 +1415,10 @@ if (navExitButton) {
 setScreen("home");
 
 getChatNodes().forEach((node) => wireChatNode(node));
+channelPills.forEach((pill) => {
+  pill.addEventListener("click", () => setLobbyChannel(pill.dataset.channel ?? "admin"));
+});
+setLobbyChannel(activeLobbyChannel);
 
 if (chatRunButton) {
   chatRunButton.addEventListener("click", () => {
@@ -1278,7 +1448,14 @@ if (chatAddNodeButton && chatGrid) {
     `;
     chatGrid.appendChild(node);
     wireChatNode(node);
+    appendLobbyMessage("System", `Custom-${count} plugged into channel #${activeLobbyChannel}.`);
     logAudit(`Custom chat node added: Custom-${count}`);
+  });
+}
+
+if (chatBanHammerButton) {
+  chatBanHammerButton.addEventListener("click", () => {
+    runBanHammer();
   });
 }
 
