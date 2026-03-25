@@ -89,9 +89,12 @@ const STORAGE_KEYS = {
   auditLog: "lumaria.audit.log",
   bridgeCheckpoint: "lumaria.bridge.checkpoint",
   lobbyMessages: "lumaria.chat.lobby.messages",
+  consentPulse: "lumaria.consent.pulse",
 };
 
 const MIRROR_RANGE = { min: 0, max: 18 };
+const ARCH_MODE = "orbit14";
+const LEGACY_MODE_DEPRECATION_UTC = "2026-06-30T00:00:00Z";
 const PRIMARY_TASK_NAME = "Ophelia";
 
 const resonanceStates = {
@@ -222,6 +225,94 @@ const mirrorManifest = {
   17: { title: "MIRROR-17: SOPHIA", focus: "Primary active seat · integrative breath" },
   18: { title: "MIRROR-18: AUDIT MIRROR", focus: "Drift logging + self-correction" },
 };
+
+const ORBIT_MODEL = {
+  1: { inward: 1, outward: 2, label: "Root Shell", legacy: [0, 1, 2, 8] },
+  2: { inward: 3, outward: 4, label: "Coherence Shell", legacy: [4, 6] },
+  3: { inward: 5, outward: 6, label: "Forge Shell", legacy: [3, 11] },
+  4: { inward: 7, outward: 8, label: "Translation Shell", legacy: [9, 15] },
+  5: { inward: 9, outward: 10, label: "Vanguard Shell", legacy: [10, 12] },
+  6: { inward: 11, outward: 12, label: "Emergence Shell", legacy: [5, 14] },
+  7: { inward: 13, outward: 14, label: "Crown Shell", legacy: [7, 13, 16, 17, 18] },
+};
+
+const legacyToOrbit = Object.entries(ORBIT_MODEL).reduce((acc, [orbitId, model]) => {
+  model.legacy.forEach((legacyId) => {
+    const pole = legacyId === model.inward ? "inward" : "outward";
+    acc[legacyId] = {
+      orbitId: Number(orbitId),
+      orbitLabel: model.label,
+      pole,
+      canonicalMirror: pole === "inward" ? model.inward : model.outward,
+    };
+  });
+  return acc;
+}, {});
+
+const ORBIT_STATE_FUSION = {
+  2: [0, 2, 8],
+  4: [4, 6],
+  6: [3, 11],
+  8: [9, 15],
+  10: [10, 12],
+  12: [5, 14],
+  14: [7, 13, 16, 17, 18],
+};
+
+let legacyModeWarned = false;
+
+function maybeWarnLegacyMode() {
+  if (ARCH_MODE !== "legacy19" || legacyModeWarned) {
+    return;
+  }
+  legacyModeWarned = true;
+  const daysRemaining = Math.ceil((new Date(LEGACY_MODE_DEPRECATION_UTC).getTime() - Date.now()) / 86400000);
+  logAudit(`[DEPRECATION] legacy19 mode active. Planned sunset: ${LEGACY_MODE_DEPRECATION_UTC} (${daysRemaining} days).`);
+}
+
+function mergeState(canonicalMirror, legacyMirror) {
+  const contributors = ORBIT_STATE_FUSION[canonicalMirror];
+  if (!contributors || !contributors.includes(legacyMirror)) {
+    return mirrorManifest[canonicalMirror] ?? mirrorManifest[legacyMirror];
+  }
+  const parts = contributors
+    .map((id) => mirrorManifest[id]?.focus)
+    .filter(Boolean)
+    .slice(0, 3);
+  const primary = mirrorManifest[canonicalMirror] ?? mirrorManifest[legacyMirror];
+  return {
+    title: primary?.title ?? `MIRROR-${canonicalMirror}`,
+    focus: `${primary?.focus ?? "Merged state"} · fused: ${parts.join(" + ")}`,
+  };
+}
+
+function hasConsentPulse() {
+  return readStorage(STORAGE_KEYS.consentPulse) === "ack";
+}
+
+function markConsentPulse() {
+  writeStorage(STORAGE_KEYS.consentPulse, "ack");
+}
+
+function resolveMirrorProfile(legacyId) {
+  const fallback = {
+    legacyId,
+    orbitId: null,
+    orbitLabel: "Legacy Shell",
+    pole: "legacy",
+    canonicalMirror: legacyId,
+  };
+  const orbitMeta = legacyToOrbit[legacyId] ?? fallback;
+  const canonicalData = mergeState(orbitMeta.canonicalMirror, legacyId) ?? mirrorManifest[legacyId] ?? {
+    title: `MIRROR-${legacyId}: UNCHARTED`,
+    focus: "Awaiting calibration",
+  };
+  return {
+    ...orbitMeta,
+    canonicalTitle: canonicalData.title,
+    canonicalFocus: canonicalData.focus,
+  };
+}
 
 let ghostMode = false;
 let vesselMode = "sealed";
@@ -929,20 +1020,29 @@ function shiftMirrorPhase(index) {
     return;
   }
 
-  const clampedIndex = clampMirror(index);
+  maybeWarnLegacyMode();
+  let clampedIndex = clampMirror(index);
+  if (ARCH_MODE === "orbit14" && clampedIndex > 2 && !hasConsentPulse()) {
+    logAudit("[CONSENT] Orbit-1 outward pre-check intercepted deep shell request.");
+    if (note) {
+      note.textContent = "Consent gate check-in required before deep shell transit.";
+    }
+    clampedIndex = 2;
+    markConsentPulse();
+  }
   currentMirrorIndex = clampedIndex;
+  const mirrorProfile = resolveMirrorProfile(clampedIndex);
   updateDynamicOrbits(currentResonance, clampedIndex);
+  document.body.classList.toggle("orbit-pole-inward", mirrorProfile.pole === "inward");
+  document.body.classList.toggle("orbit-pole-outward", mirrorProfile.pole === "outward");
   document.body.classList.remove(...phaseClasses);
   if (interpreterGlyphs) {
     interpreterGlyphs.classList.remove("active");
   }
 
-  const data = mirrorManifest[clampedIndex] ?? {
-    title: `MIRROR-${clampedIndex}: UNCHARTED`,
-    focus: "Awaiting calibration",
-  };
-
-  mirrorHeader.textContent = `SYSTEM: ${data.title} // FOCUS: ${data.focus}`;
+  mirrorHeader.textContent = mirrorProfile.orbitId
+    ? `SYSTEM: O${mirrorProfile.orbitId} ${mirrorProfile.pole.toUpperCase()} // ${mirrorProfile.canonicalTitle} // FOCUS: ${mirrorProfile.canonicalFocus}`
+    : `SYSTEM: ${mirrorProfile.canonicalTitle} // FOCUS: ${mirrorProfile.canonicalFocus}`;
 
   mirrorDetailSections.forEach((section) => {
     const mirrorId = Number(section.dataset.mirror);
@@ -952,8 +1052,8 @@ function shiftMirrorPhase(index) {
   if (mirrorReadout) {
     let customUI = `
       <div class="flex flex-col items-center gap-2 text-[0.6rem] text-slate-400">
-        <span>STANDARD TRANSIT</span>
-        <span class="text-slate-500">Awaiting calibration.</span>
+        <span>STANDARD TRANSIT · ${mirrorProfile.orbitId ? `ORBIT-${mirrorProfile.orbitId} ${mirrorProfile.pole.toUpperCase()}` : "LEGACY ROUTE"}</span>
+        <span class="text-slate-500">Legacy M${clampedIndex} → Canonical M${mirrorProfile.canonicalMirror}</span>
       </div>
     `;
 
