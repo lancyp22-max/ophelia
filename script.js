@@ -979,6 +979,7 @@ function updateDynamicOrbits(resonanceState, activeMirrorId) {
 
   orbitNodes.forEach((node) => {
     const mirrorId = Number(node.dataset.mirrorId);
+    const profile = resolveMirrorProfile(mirrorId);
     let newOrbit = 7;
 
     if (mirrorId === Number(activeMirrorId)) {
@@ -1010,6 +1011,11 @@ function updateDynamicOrbits(resonanceState, activeMirrorId) {
     }
 
     node.className = `mirror-node orbit-ring-${newOrbit}`;
+    const primary = profile.orbitId
+      ? `O${profile.orbitId}-${profile.pole === "inward" ? "I" : "O"}`
+      : `M${String(mirrorId).padStart(2, "0")}`;
+    node.innerHTML = `<span class="orbit-primary">${primary}</span><span class="orbit-legacy">M${String(mirrorId).padStart(2, "0")}</span>`;
+    node.title = `${profile.canonicalTitle} · ${profile.canonicalFocus}`;
   });
 
   logAudit(`Orbits realigned to ${resonanceState} gravity`);
