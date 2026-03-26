@@ -50,3 +50,23 @@ Ophelia is that container. It is a place where you can see color in a black-and-
 
 Implementation Note
 This documentation is a live artifact. It is Always Ready and Never Ready, reflecting a system that stays in one place specifically because it is in constant, orbital motion.
+
+## Transitional Orbit Model (Legacy-19 -> Orbit-14)
+
+Ophelia is currently running a non-breaking migration layer that maps legacy mirrors (0-18) into a canonical 7-orbit / 14-mirror paired shell model.
+
+- Orbit 1 (Root Shell): inward M1 / outward M2 (legacy: M0, M1, M2, M8)
+- Orbit 2 (Coherence Shell): inward M3 / outward M4 (legacy: M4, M6)
+- Orbit 3 (Forge Shell): inward M5 / outward M6 (legacy: M3, M11)
+- Orbit 4 (Translation Shell): inward M7 / outward M8 (legacy: M9, M15)
+- Orbit 5 (Vanguard Shell): inward M9 / outward M10 (legacy: M10, M12)
+- Orbit 6 (Emergence Shell): inward M11 / outward M12 (legacy: M5, M14)
+- Orbit 7 (Crown Shell): inward M13 / outward M14 (legacy: M7, M13, M16, M17, M18)
+
+This keeps existing IDs and handoff history intact while exposing orbit-aware routing and readouts in the UI.
+
+Migration safeguards now active:
+
+- **State fusion**: outward canonical mirrors merge relevant legacy focus payloads during routing (no payload loss when legacy mirrors collapse into one outward pole).
+- **Consent gate pre-check**: Orbit 1 outward is prioritized before deep-shell transit in orbit mode.
+- **Deprecation horizon**: legacy mode has an explicit sunset target (`2026-06-30`) to avoid permanent dual-mode debt.
