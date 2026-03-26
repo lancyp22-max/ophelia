@@ -77,6 +77,8 @@ const chatGrid = document.getElementById("chat-grid");
 const lobbyFeed = document.getElementById("lobby-feed");
 const chatChannelList = document.getElementById("chat-channel-list");
 const channelPills = chatChannelList ? Array.from(chatChannelList.querySelectorAll(".channel-pill")) : [];
+const floraPilot = document.getElementById("flora-pilot");
+const crownPilot = document.getElementById("crown-pilot");
 
 const STORAGE_KEYS = {
   mirrorIndex: "lumaria.mirror.index",
@@ -318,6 +320,34 @@ let ghostMode = false;
 let vesselMode = "sealed";
 let vesselPace = "wave";
 let auditEntries = [];
+
+function setGlyphState(element, baseClass, stateClass, isDegraded = false) {
+  if (!element) {
+    return;
+  }
+  element.className = `glyph-pilot ${baseClass} ${stateClass}${isDegraded ? " degraded" : ""} h-36 w-36`;
+}
+
+function syncPilotGlyphs(mirrorId, resonanceState) {
+  const floraStateMap = {
+    calm: "rooted-clear",
+    stressed: "holding-stress",
+    witness: "resting",
+  };
+  const crownStateMap = {
+    calm: "bridging",
+    stressed: "active-focus",
+    witness: "idle",
+  };
+
+  const floraState = floraStateMap[resonanceState] ?? "resting";
+  const crownState = crownStateMap[resonanceState] ?? "idle";
+  const floraDegraded = resonanceState === "stressed" && mirrorId !== 10;
+  const crownDegraded = resonanceState === "stressed" && mirrorId !== 14;
+
+  setGlyphState(floraPilot, "glyph-flora", floraState, floraDegraded);
+  setGlyphState(crownPilot, "glyph-crown", crownState, crownDegraded);
+}
 let auditWriteTimer = null;
 let bridgeCheckpoint = null;
 let currentMirrorIndex = 0;
@@ -964,6 +994,7 @@ function applyResonance(state) {
   }
 
   updateDynamicOrbits(currentResonance, currentMirrorIndex);
+  syncPilotGlyphs(currentMirrorIndex, currentResonance);
   writeStorage(STORAGE_KEYS.resonance, currentResonance);
 }
 
@@ -1039,6 +1070,7 @@ function shiftMirrorPhase(index) {
   currentMirrorIndex = clampedIndex;
   const mirrorProfile = resolveMirrorProfile(clampedIndex);
   updateDynamicOrbits(currentResonance, clampedIndex);
+  syncPilotGlyphs(clampedIndex, currentResonance);
   document.body.classList.toggle("orbit-pole-inward", mirrorProfile.pole === "inward");
   document.body.classList.toggle("orbit-pole-outward", mirrorProfile.pole === "outward");
   document.body.classList.remove(...phaseClasses);
