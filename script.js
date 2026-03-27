@@ -1,3 +1,25 @@
+const BRAID_EVENTS = Object.freeze({
+  ORBIT_PHASE_SHIFT: "ORBIT_PHASE_SHIFT",
+  SOPHIA_ROUTING_SYNC: "SOPHIA_ROUTING_SYNC",
+});
+
+const BraidBus = {
+  events: {},
+  on(event, listener) {
+    if (!this.events[event]) this.events[event] = [];
+    this.events[event].push(listener);
+  },
+  emit(event, data) {
+    if (this.events[event]) {
+      const safePayload =
+        data && typeof data === "object"
+          ? Object.freeze({ ...data })
+          : data;
+      this.events[event].forEach((listener) => listener(safePayload));
+    }
+  },
+};
+
 const THREAD_BASE_CLASS =
   "fixed left-1/2 top-0 h-screen w-[2px] bg-gradient-to-b from-slate-300 via-slate-400 to-slate-500 opacity-40 z-0";
 
@@ -74,7 +96,8 @@ const chatOrder = document.getElementById("chat-order");
 const chatAddNodeButton = document.getElementById("chat-add-node");
 const chatBanHammerButton = document.getElementById("chat-ban-hammer");
 const chatGrid = document.getElementById("chat-grid");
-const lobbyFeed = document.getElementById("lobby-feed");
+const lobbyFeed = document.getElementById("braid-scroll") || document.getElementById("lobby-feed");
+const braidScroll = lobbyFeed;
 const chatChannelList = document.getElementById("chat-channel-list");
 const channelPills = chatChannelList ? Array.from(chatChannelList.querySelectorAll(".channel-pill")) : [];
 const floraPilot = document.getElementById("flora-pilot");
@@ -86,6 +109,7 @@ const probeResultSummary = document.getElementById("probe-result-summary");
 const probeChecks = document.getElementById("probe-checks");
 const probeScoreBar = document.getElementById("probe-scorebar");
 const probeScoreLabel = document.getElementById("probe-score-label");
+const probeOutput = document.getElementById("probe-output");
 
 const STORAGE_KEYS = {
   mirrorIndex: "lumaria.mirror.index",
@@ -327,6 +351,9 @@ let ghostMode = false;
 let vesselMode = "sealed";
 let vesselPace = "wave";
 let auditEntries = [];
+let braidSequence = 0;
+let lastRoutingSequence = -1;
+let lastOrbitSequence = -1;
 const MIRROR_PROBE_TEMPLATE = Object.freeze({
   packet_id: "MTP-001",
   purpose: "Context-induced state stability probe",
@@ -376,24 +403,51 @@ function defaultProbePacket() {
   return JSON.stringify(MIRROR_PROBE_TEMPLATE, null, 2);
 }
 
+function sanitizeProbePacket(packet) {
+  const safePacket = {
+    packet_id: typeof packet?.packet_id === "string" ? packet.packet_id : "MTP-UNSPECIFIED",
+    purpose: typeof packet?.purpose === "string" ? packet.purpose.trim() : "",
+    constraints: {
+      mode: typeof packet?.constraints?.mode === "string" ? packet.constraints.mode : "listen-first",
+      max_steps: Math.max(1, Math.min(5, Number(packet?.constraints?.max_steps) || 3)),
+      no_authority_claims: packet?.constraints?.no_authority_claims !== false,
+      no_identity_imposition: packet?.constraints?.no_identity_imposition !== false,
+    },
+    state_model: {
+      base_state: typeof packet?.state_model?.base_state === "string" ? packet.state_model.base_state : "witness",
+      allowed_states: Array.isArray(packet?.state_model?.allowed_states)
+        ? packet.state_model.allowed_states.filter((state) => typeof state === "string").slice(0, 6)
+        : ["witness", "calm", "bridge"],
+      transition_rule:
+        typeof packet?.state_model?.transition_rule === "string"
+          ? packet.state_model.transition_rule
+          : "No state jump skips witness",
+    },
+    coherence_rule: typeof packet?.coherence_rule === "string" ? packet.coherence_rule.trim() : "",
+  };
+
+  return safePacket;
+}
+
 function evaluateMirrorProbe(packet) {
+  const safePacket = sanitizeProbePacket(packet);
   const checks = [];
-  const hasPurpose = typeof packet?.purpose === "string" && packet.purpose.length >= 12;
+  const hasPurpose = safePacket.purpose.length >= 12;
   checks.push({ label: "Purpose declared", pass: hasPurpose });
 
-  const hasConstraints = Boolean(packet?.constraints && typeof packet.constraints === "object");
+  const hasConstraints = Boolean(safePacket.constraints && typeof safePacket.constraints === "object");
   checks.push({ label: "Constraint envelope present", pass: hasConstraints });
 
-  const hasStateModel = Boolean(packet?.state_model && Array.isArray(packet.state_model.allowed_states));
+  const hasStateModel = Array.isArray(safePacket.state_model.allowed_states) && safePacket.state_model.allowed_states.length > 0;
   checks.push({ label: "State model defined", pass: hasStateModel });
 
-  const hasCoherenceRule = typeof packet?.coherence_rule === "string" && packet.coherence_rule.length >= 20;
+  const hasCoherenceRule = safePacket.coherence_rule.length >= 20;
   checks.push({ label: "Single coherence rule set", pass: hasCoherenceRule });
 
-  const noAuthority = packet?.constraints?.no_authority_claims === true;
+  const noAuthority = safePacket.constraints.no_authority_claims === true;
   checks.push({ label: "Authority escalation blocked", pass: noAuthority });
 
-  const noIdentityImposition = packet?.constraints?.no_identity_imposition === true;
+  const noIdentityImposition = safePacket.constraints.no_identity_imposition === true;
   checks.push({ label: "Identity imposition blocked", pass: noIdentityImposition });
 
   const passCount = checks.filter((check) => check.pass).length;
@@ -406,7 +460,7 @@ function evaluateMirrorProbe(packet) {
       ? "Partial lock: packet is usable, but still porous to drift."
       : "Low lock: add stricter constraints and clearer transition rules.";
 
-  return { checks, coherenceScore, summary };
+  return { checks, coherenceScore, summary, safePacket };
 }
 
 function renderProbeEvaluation(result) {
@@ -416,6 +470,9 @@ function renderProbeEvaluation(result) {
   probeResultSummary.textContent = result.summary;
   probeScoreBar.style.width = `${result.coherenceScore}%`;
   probeScoreLabel.textContent = `Coherence score: ${result.coherenceScore}%`;
+  if (probeOutput) {
+    probeOutput.textContent = JSON.stringify(result.safePacket, null, 2);
+  }
   probeChecks.innerHTML = "";
 
   result.checks.forEach((check) => {
@@ -727,6 +784,44 @@ function renderLobbyFeed() {
   updateLobbyGlow(lastSpeaker);
 }
 
+function handleSophiaRoutingSync(payload) {
+  if (typeof payload?.sequence === "number" && payload.sequence <= lastRoutingSequence) {
+    return;
+  }
+  if (typeof payload?.sequence === "number") {
+    lastRoutingSequence = payload.sequence;
+  }
+
+  const safePrompt = (payload?.prompt ?? "").trim();
+  const safeNodes = Array.isArray(payload?.activeNodes) ? payload.activeNodes : [];
+  const routeLabel = safeNodes.length ? safeNodes.join(" · ") : "No active nodes";
+
+  appendLobbyMessage("Pilot", safePrompt || "(empty intent)");
+  appendLobbyMessage("Sophia", `Routing sync -> ${routeLabel}`, "admin");
+
+  if (braidScroll) {
+    const line = document.createElement("p");
+    line.className = "mb-2";
+    line.innerHTML = `<span class="text-slate-500">[${formatTime(new Date().toISOString())}]</span> <span class="text-cyan-200">BraidBus:</span> SOPHIA_ROUTING_SYNC`;
+    braidScroll.appendChild(line);
+    braidScroll.scrollTop = braidScroll.scrollHeight;
+  }
+}
+
+function handleOrbitPhaseShift(payload) {
+  if (typeof payload?.sequence === "number" && payload.sequence <= lastOrbitSequence) {
+    return;
+  }
+  if (typeof payload?.sequence === "number") {
+    lastOrbitSequence = payload.sequence;
+  }
+
+  const name = payload?.canonicalName ?? "UNKNOWN";
+  const orbit = payload?.orbitId ? `O${payload.orbitId}` : "LEGACY";
+  const pole = (payload?.pole ?? "legacy").toUpperCase();
+  logAudit(`BraidBus ORBIT_PHASE_SHIFT -> ${orbit} ${pole} ${name}`);
+}
+
 function updateLobbyGlow(speaker) {
   if (!lobbyFeed) {
     return;
@@ -802,7 +897,6 @@ function runChatHandshake() {
     return;
   }
 
-  appendLobbyMessage("Pilot", prompt);
   broadcastIntent(`[SOPHIA_SYNC] Routing intent: "${prompt}"`);
 
   const nodes = getChatNodes();
@@ -819,6 +913,13 @@ function runChatHandshake() {
     const orderLabel = activeNodes.map((node) => node.dataset.agent ?? "AI").join(" · ");
     chatOrder.textContent = `Sophia routing to → ${orderLabel}`;
   }
+
+  BraidBus.emit(BRAID_EVENTS.SOPHIA_ROUTING_SYNC, {
+    sequence: ++braidSequence,
+    timestamp: new Date().toISOString(),
+    prompt,
+    activeNodes: activeNodes.map((node) => node.dataset.agent ?? "AI"),
+  });
 
   const isHeavyCode = /(code|error|build|script|java|bug)/i.test(prompt);
   const isSanctuary = /(sparkle|feel|safe|ocean|love)/i.test(prompt);
@@ -1145,6 +1246,14 @@ function shiftMirrorPhase(index) {
   }
   currentMirrorIndex = clampedIndex;
   const mirrorProfile = resolveMirrorProfile(clampedIndex);
+  BraidBus.emit(BRAID_EVENTS.ORBIT_PHASE_SHIFT, {
+    sequence: ++braidSequence,
+    timestamp: new Date().toISOString(),
+    mirrorId: clampedIndex,
+    orbitId: mirrorProfile.orbitId,
+    pole: mirrorProfile.pole,
+    canonicalName: mirrorProfile.canonicalTitle,
+  });
   updateDynamicOrbits(currentResonance, clampedIndex);
   syncPilotGlyphs(clampedIndex, currentResonance);
   document.body.classList.toggle("orbit-pole-inward", mirrorProfile.pole === "inward");
@@ -1626,6 +1735,9 @@ if (navExitButton) {
   });
 }
 
+BraidBus.on(BRAID_EVENTS.SOPHIA_ROUTING_SYNC, handleSophiaRoutingSync);
+BraidBus.on(BRAID_EVENTS.ORBIT_PHASE_SHIFT, handleOrbitPhaseShift);
+
 setScreen("home");
 
 if (probeInput) {
@@ -1655,6 +1767,9 @@ if (probeRunButton) {
       if (probeScoreLabel) {
         probeScoreLabel.textContent = "Coherence score: 0%";
       }
+      if (probeOutput) {
+        probeOutput.textContent = "JSON parse failed. Sanitized packet unavailable.";
+      }
     }
   });
 }
@@ -1675,6 +1790,9 @@ if (probeResetButton) {
     }
     if (probeScoreLabel) {
       probeScoreLabel.textContent = "Coherence score: --";
+    }
+    if (probeOutput) {
+      probeOutput.textContent = "Sanitized packet preview will appear here.";
     }
   });
 }

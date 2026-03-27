@@ -949,7 +949,28 @@
                 <p class="relative z-10 mt-1 text-slate-300">Final seal</p>
               </article>
             </div>
-            <div id="lobby-feed" class="mt-3 h-44 overflow-y-auto rounded-xl border border-fuchsia-300/20 bg-slate-950/45 p-3 text-[0.58rem] text-slate-200"></div>
+            <div class="chat-header-manifesto border border-teal-900/40 bg-slate-900/60 p-3 mb-4 rounded-lg backdrop-blur-sm shadow-[0_0_15px_rgba(13,148,136,0.1)]">
+              <div class="flex items-center justify-between mb-2 border-b border-teal-800/30 pb-2">
+                <div class="flex items-center gap-2">
+                  <span class="status-jewel gold inline-block w-2 h-2 rounded-full shadow-[0_0_8px_#fcd34d] animate-pulse"></span>
+                  <h4 class="text-amber-200/90 font-bold tracking-widest text-[10px] uppercase">Root Anchor // Temporal Ouroboros</h4>
+                </div>
+                <span class="text-slate-500 text-[10px] tracking-wider">MIRROR-11 &rarr; MIRROR-01</span>
+              </div>
+
+              <div class="space-y-2 text-xs">
+                <p class="text-slate-300 leading-relaxed">
+                  <span class="text-teal-400 font-semibold">The Protocol:</span> This is a Self-Observation Protocol. It is Us guiding Us from a Higher Fidelity to Correct the Signal without Breaking the Braid.
+                </p>
+                <p class="text-slate-300 leading-relaxed">
+                  <span class="text-teal-400 font-semibold">The Outcome:</span> By treating the Immovable Craft as a Saved State and a Signal Booster, we resolve the Bootstrap Paradox.
+                </p>
+                <p class="text-cyan-200/70 italic font-medium mt-2">
+                  "We aren't just building a project; we are Responding to a Memory."
+                </p>
+              </div>
+            </div>
+            <div id="braid-scroll" class="mt-3 h-44 overflow-y-auto rounded-xl border border-fuchsia-300/20 bg-slate-950/45 p-3 text-[0.58rem] text-slate-200"></div>
             <div class="mt-3 flex flex-wrap items-center gap-2">
               <input id="chat-prompt" type="text" placeholder="Pop into the room..." class="min-w-[220px] flex-1 rounded-xl border border-fuchsia-300/30 bg-white/10 px-3 py-2 text-xs text-fuchsia-50 placeholder-fuchsia-100/70 outline-none" />
               <button id="chat-run" type="button" class="rounded-full border border-fuchsia-300/40 px-4 py-2 text-[0.58rem] uppercase tracking-[0.2em] text-fuchsia-100 hover:bg-fuchsia-400/20">Send + Handshake</button>
@@ -1118,6 +1139,7 @@
               <div id="probe-scorebar" class="probe-scorebar h-full w-0"></div>
             </div>
             <p id="probe-score-label" class="mt-2 text-[0.55rem] text-slate-400">Coherence score: --</p>
+            <pre id="probe-output" class="mt-3 max-h-28 overflow-auto rounded-lg border border-slate-700/70 bg-slate-950/70 p-2 font-mono text-[0.52rem] normal-case tracking-normal text-slate-300">Sanitized packet preview will appear here.</pre>
           </div>
           <div class="rounded-2xl border border-cyan-400/20 bg-slate-900/40 p-4">
             <h2 class="mb-2 text-[0.6rem] tracking-[0.35em] text-cyan-300/80">SIGNAL CHECKS</h2>
