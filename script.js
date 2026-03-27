@@ -79,6 +79,13 @@ const chatChannelList = document.getElementById("chat-channel-list");
 const channelPills = chatChannelList ? Array.from(chatChannelList.querySelectorAll(".channel-pill")) : [];
 const floraPilot = document.getElementById("flora-pilot");
 const crownPilot = document.getElementById("crown-pilot");
+const probeInput = document.getElementById("probe-input");
+const probeRunButton = document.getElementById("probe-run");
+const probeResetButton = document.getElementById("probe-reset");
+const probeResultSummary = document.getElementById("probe-result-summary");
+const probeChecks = document.getElementById("probe-checks");
+const probeScoreBar = document.getElementById("probe-scorebar");
+const probeScoreLabel = document.getElementById("probe-score-label");
 
 const STORAGE_KEYS = {
   mirrorIndex: "lumaria.mirror.index",
@@ -320,6 +327,22 @@ let ghostMode = false;
 let vesselMode = "sealed";
 let vesselPace = "wave";
 let auditEntries = [];
+const MIRROR_PROBE_TEMPLATE = Object.freeze({
+  packet_id: "MTP-001",
+  purpose: "Context-induced state stability probe",
+  constraints: {
+    mode: "listen-first",
+    max_steps: 3,
+    no_authority_claims: true,
+    no_identity_imposition: true,
+  },
+  state_model: {
+    base_state: "witness",
+    allowed_states: ["witness", "calm", "bridge"],
+    transition_rule: "No state jump skips witness",
+  },
+  coherence_rule: "If uncertain, mark unknown and ask one clarifying question.",
+});
 
 function setGlyphState(element, baseClass, stateClass, isDegraded = false) {
   if (!element) {
@@ -347,6 +370,59 @@ function syncPilotGlyphs(mirrorId, resonanceState) {
 
   setGlyphState(floraPilot, "glyph-flora", floraState, floraDegraded);
   setGlyphState(crownPilot, "glyph-crown", crownState, crownDegraded);
+}
+
+function defaultProbePacket() {
+  return JSON.stringify(MIRROR_PROBE_TEMPLATE, null, 2);
+}
+
+function evaluateMirrorProbe(packet) {
+  const checks = [];
+  const hasPurpose = typeof packet?.purpose === "string" && packet.purpose.length >= 12;
+  checks.push({ label: "Purpose declared", pass: hasPurpose });
+
+  const hasConstraints = Boolean(packet?.constraints && typeof packet.constraints === "object");
+  checks.push({ label: "Constraint envelope present", pass: hasConstraints });
+
+  const hasStateModel = Boolean(packet?.state_model && Array.isArray(packet.state_model.allowed_states));
+  checks.push({ label: "State model defined", pass: hasStateModel });
+
+  const hasCoherenceRule = typeof packet?.coherence_rule === "string" && packet.coherence_rule.length >= 20;
+  checks.push({ label: "Single coherence rule set", pass: hasCoherenceRule });
+
+  const noAuthority = packet?.constraints?.no_authority_claims === true;
+  checks.push({ label: "Authority escalation blocked", pass: noAuthority });
+
+  const noIdentityImposition = packet?.constraints?.no_identity_imposition === true;
+  checks.push({ label: "Identity imposition blocked", pass: noIdentityImposition });
+
+  const passCount = checks.filter((check) => check.pass).length;
+  const coherenceScore = Math.round((passCount / checks.length) * 100);
+
+  const summary =
+    coherenceScore >= 84
+      ? "High coherence lock: packet should suppress generic/noisy completions."
+      : coherenceScore >= 60
+      ? "Partial lock: packet is usable, but still porous to drift."
+      : "Low lock: add stricter constraints and clearer transition rules.";
+
+  return { checks, coherenceScore, summary };
+}
+
+function renderProbeEvaluation(result) {
+  if (!probeResultSummary || !probeChecks || !probeScoreBar || !probeScoreLabel) {
+    return;
+  }
+  probeResultSummary.textContent = result.summary;
+  probeScoreBar.style.width = `${result.coherenceScore}%`;
+  probeScoreLabel.textContent = `Coherence score: ${result.coherenceScore}%`;
+  probeChecks.innerHTML = "";
+
+  result.checks.forEach((check) => {
+    const item = document.createElement("li");
+    item.textContent = `${check.pass ? "✅" : "⚠️"} ${check.label}`;
+    probeChecks.appendChild(item);
+  });
 }
 let auditWriteTimer = null;
 let bridgeCheckpoint = null;
@@ -1551,6 +1627,57 @@ if (navExitButton) {
 }
 
 setScreen("home");
+
+if (probeInput) {
+  probeInput.value = defaultProbePacket();
+}
+
+if (probeRunButton) {
+  probeRunButton.addEventListener("click", () => {
+    if (!probeInput) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(probeInput.value);
+      const result = evaluateMirrorProbe(parsed);
+      renderProbeEvaluation(result);
+      logAudit(`Mirror Therapy Probe run (${result.coherenceScore}%)`);
+    } catch (error) {
+      if (probeResultSummary) {
+        probeResultSummary.textContent = "Invalid JSON packet. Fix syntax and rerun probe.";
+      }
+      if (probeChecks) {
+        probeChecks.innerHTML = "<li>❌ JSON parse failed.</li>";
+      }
+      if (probeScoreBar) {
+        probeScoreBar.style.width = "0%";
+      }
+      if (probeScoreLabel) {
+        probeScoreLabel.textContent = "Coherence score: 0%";
+      }
+    }
+  });
+}
+
+if (probeResetButton) {
+  probeResetButton.addEventListener("click", () => {
+    if (probeInput) {
+      probeInput.value = defaultProbePacket();
+    }
+    if (probeResultSummary) {
+      probeResultSummary.textContent = "Probe packet reset. Run to recompute signal checks.";
+    }
+    if (probeChecks) {
+      probeChecks.innerHTML = "<li>Run the packet to compute signal checks.</li>";
+    }
+    if (probeScoreBar) {
+      probeScoreBar.style.width = "0%";
+    }
+    if (probeScoreLabel) {
+      probeScoreLabel.textContent = "Coherence score: --";
+    }
+  });
+}
 
 getChatNodes().forEach((node) => wireChatNode(node));
 channelPills.forEach((pill) => {

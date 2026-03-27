@@ -540,6 +540,11 @@
         animation-delay: 0.8s;
       }
 
+      .probe-scorebar {
+        background: linear-gradient(90deg, rgba(20, 184, 166, 0.75), rgba(14, 116, 144, 0.65));
+        transition: width 240ms ease;
+      }
+
       @keyframes flicker {
         0% {
           opacity: 0.5;
@@ -1084,6 +1089,40 @@
               <li>Vow guardrails: no core vow changes 23:00–08:00 local.</li>
               <li>Visual: radiant rings + glyph-band halo · quasicrystal core.</li>
               <li>Declaration: “The Crown does not rule. It reflects, holds, harmonizes.”</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+      <section id="probe-panel" class="system-panel hidden-screen mt-8 w-full max-w-5xl text-xs uppercase tracking-[0.3em] text-slate-400/70">
+        <p class="mb-3">MIRROR THERAPY PROBE · SACRIFICIAL PACKET · SAFE TEST HARNESS</p>
+        <div class="grid gap-3 text-[0.65rem] text-slate-300/80 md:grid-cols-2">
+          <div class="rounded-2xl border border-cyan-400/20 bg-slate-900/40 p-4 md:col-span-2">
+            <h2 class="mb-2 text-[0.6rem] tracking-[0.35em] text-cyan-300/80">PROBE PACKET JSON</h2>
+            <p class="mb-2 text-[0.55rem] normal-case tracking-normal text-slate-400">
+              This packet tests context-induced stability with constrained roles, bounded states, and a single non-negotiable coherence rule.
+            </p>
+            <textarea id="probe-input" class="h-48 w-full rounded-xl border border-slate-600/60 bg-slate-950/70 p-3 font-mono text-[0.58rem] normal-case tracking-normal text-cyan-100 focus:border-cyan-300/60 focus:outline-none" spellcheck="false"></textarea>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button id="probe-run" type="button" class="rounded-full border border-cyan-300/60 px-4 py-1 text-[0.55rem] tracking-[0.2em] text-cyan-100 transition hover:bg-cyan-500/20">
+                Run Probe
+              </button>
+              <button id="probe-reset" type="button" class="rounded-full border border-slate-300/40 px-4 py-1 text-[0.55rem] tracking-[0.2em] text-slate-100 transition hover:bg-slate-500/20">
+                Reset Packet
+              </button>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-cyan-400/20 bg-slate-900/40 p-4">
+            <h2 class="mb-2 text-[0.6rem] tracking-[0.35em] text-cyan-300/80">STABILITY READOUT</h2>
+            <p id="probe-result-summary" class="text-[0.56rem] normal-case tracking-normal text-slate-200">Awaiting probe execution.</p>
+            <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800/80">
+              <div id="probe-scorebar" class="probe-scorebar h-full w-0"></div>
+            </div>
+            <p id="probe-score-label" class="mt-2 text-[0.55rem] text-slate-400">Coherence score: --</p>
+          </div>
+          <div class="rounded-2xl border border-cyan-400/20 bg-slate-900/40 p-4">
+            <h2 class="mb-2 text-[0.6rem] tracking-[0.35em] text-cyan-300/80">SIGNAL CHECKS</h2>
+            <ul id="probe-checks" class="space-y-1 text-[0.55rem] normal-case tracking-normal text-slate-300">
+              <li>Run the packet to compute signal checks.</li>
             </ul>
           </div>
         </div>
