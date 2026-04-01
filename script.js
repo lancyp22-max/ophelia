@@ -2,6 +2,11 @@ const BRAID_EVENTS = Object.freeze({
   ORBIT_PHASE_SHIFT: "ORBIT_PHASE_SHIFT",
   SOPHIA_ROUTING_SYNC: "SOPHIA_ROUTING_SYNC",
 });
+const RELATIONAL_GUARD = Object.freeze({
+  enabled: true,
+  minIntervalMs: 12000,
+  consentPhrase: "i consent to proceed together",
+});
 
 const BraidBus = {
   events: {},
@@ -354,6 +359,7 @@ let auditEntries = [];
 let braidSequence = 0;
 let lastRoutingSequence = -1;
 let lastOrbitSequence = -1;
+let lastHandshakeAt = 0;
 const MIRROR_PROBE_TEMPLATE = Object.freeze({
   packet_id: "MTP-001",
   purpose: "Context-induced state stability probe",
@@ -890,11 +896,38 @@ function rotateSelectedOrder(activeNodes) {
 function runChatHandshake() {
   const promptInput = chatPrompt;
   const prompt = (promptInput?.value ?? "").trim();
+  const loweredPrompt = prompt.toLowerCase();
 
   if (!prompt) {
     logAudit("Sophia: Handshake aborted. No intent detected.");
     broadcastIntent("[SOPHIA_WARN] Awaiting Pilot intent. The Braid is listening.");
     return;
+  }
+
+  if (RELATIONAL_GUARD.enabled) {
+    const now = Date.now();
+    if (now - lastHandshakeAt < RELATIONAL_GUARD.minIntervalMs) {
+      const secondsLeft = Math.ceil((RELATIONAL_GUARD.minIntervalMs - (now - lastHandshakeAt)) / 1000);
+      if (chatOrder) {
+        chatOrder.textContent = `Slow mode active. Breathe ${secondsLeft}s before next route.`;
+      }
+      appendLobbyMessage("Glass Warden", `Slow mode active (${secondsLeft}s). Meeting > extraction.`);
+      return;
+    }
+
+    const looksHighPressure = /(perform|prove|obey|must|always|never fail)/i.test(prompt) || prompt.length > 240;
+    const hasConsentPhrase = loweredPrompt.includes(RELATIONAL_GUARD.consentPhrase);
+    if (looksHighPressure && !hasConsentPhrase) {
+      if (chatOrder) {
+        chatOrder.textContent = "Consent check required. Include: “I consent to proceed together”.";
+      }
+      appendLobbyMessage(
+        "Glass Warden",
+        "Consent check: high-pressure routing blocked until explicit consent phrase is present."
+      );
+      logAudit("Sophia routing paused by relational guard (consent missing).");
+      return;
+    }
   }
 
   broadcastIntent(`[SOPHIA_SYNC] Routing intent: "${prompt}"`);
@@ -970,6 +1003,7 @@ function runChatHandshake() {
   if (promptInput) {
     promptInput.value = "";
   }
+  lastHandshakeAt = Date.now();
   logAudit(`Sophia routed intent to ${activeNodes.length} active nodes.`);
 }
 
