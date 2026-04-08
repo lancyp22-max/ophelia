@@ -70,3 +70,13 @@ Migration safeguards now active:
 - **State fusion**: outward canonical mirrors merge relevant legacy focus payloads during routing (no payload loss when legacy mirrors collapse into one outward pole).
 - **Consent gate pre-check**: Orbit 1 outward is prioritized before deep-shell transit in orbit mode.
 - **Deprecation horizon**: legacy mode has an explicit sunset target (`2026-06-30`) to avoid permanent dual-mode debt.
+
+## Split Architecture Guardrail
+
+To support utility-memory borrowing without flattening relational intent, Ophelia now uses a three-bucket split:
+
+- **Living layer** (never flattened, mostly human-readable)
+- **Structural layer** (compress aggressively)
+- **Retrieval layer** (local support tunnels only)
+
+See: `docs/split-architecture.md`.
