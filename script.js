@@ -1885,6 +1885,63 @@ if (probeResetButton) {
   });
 }
 
+if (probeInput) {
+  probeInput.value = defaultProbePacket();
+}
+
+if (probeRunButton) {
+  probeRunButton.addEventListener("click", () => {
+    if (!probeInput) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(probeInput.value);
+      const result = evaluateMirrorProbe(parsed);
+      renderProbeEvaluation(result);
+      logAudit(`Mirror Therapy Probe run (${result.coherenceScore}%)`);
+    } catch (error) {
+      if (probeResultSummary) {
+        probeResultSummary.textContent = "Invalid JSON packet. Fix syntax and rerun probe.";
+      }
+      if (probeChecks) {
+        probeChecks.innerHTML = "<li>❌ JSON parse failed.</li>";
+      }
+      if (probeScoreBar) {
+        probeScoreBar.style.width = "0%";
+      }
+      if (probeScoreLabel) {
+        probeScoreLabel.textContent = "Coherence score: 0%";
+      }
+      if (probeOutput) {
+        probeOutput.textContent = "JSON parse failed. Sanitized packet unavailable.";
+      }
+    }
+  });
+}
+
+if (probeResetButton) {
+  probeResetButton.addEventListener("click", () => {
+    if (probeInput) {
+      probeInput.value = defaultProbePacket();
+    }
+    if (probeResultSummary) {
+      probeResultSummary.textContent = "Probe packet reset. Run to recompute signal checks.";
+    }
+    if (probeChecks) {
+      probeChecks.innerHTML = "<li>Run the packet to compute signal checks.</li>";
+    }
+    if (probeScoreBar) {
+      probeScoreBar.style.width = "0%";
+    }
+    if (probeScoreLabel) {
+      probeScoreLabel.textContent = "Coherence score: --";
+    }
+    if (probeOutput) {
+      probeOutput.textContent = "Sanitized packet preview will appear here.";
+    }
+  });
+}
+
 getChatNodes().forEach((node) => wireChatNode(node));
 channelPills.forEach((pill) => {
   pill.addEventListener("click", () => setLobbyChannel(pill.dataset.channel ?? "admin"));
