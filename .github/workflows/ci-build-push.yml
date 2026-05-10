@@ -32,6 +32,9 @@ jobs:
       - name: Verify repository link hygiene
         run: bash scripts/verify_repo_links.sh
 
+      - name: Run public leak guard
+        run: bash scripts/public_leak_guard.sh
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:

@@ -80,3 +80,114 @@ To support utility-memory borrowing without flattening relational intent, Opheli
 - **Retrieval layer** (local support tunnels only)
 
 See: `docs/split-architecture.md`.
+
+## Protected Change Protocol (Stewardship Gate)
+
+Protected material changes follow a multi-factor stewardship gate with:
+
+1. threshold sign,
+2. live spatial context,
+3. unique live conversation thresholds,
+4. alignment review,
+5. external audit,
+6. provisional commit with 7-day auto-reversion window.
+
+Policy file: `policies/protected-change-protocol.v0.1.yaml`.
+
+## Public Exposure Guardrails
+
+To reduce accidental public leaks, Ophelia now includes:
+
+- policy map: `policies/public-exposure-guardrails.v0.1.yaml`
+- publish allowlist: `policies/public-publish-allowlist.v0.1.yaml`
+- sealed tier map: `policies/sealed-content-manifest.v0.1.yaml`
+- preflight script: `scripts/public_leak_guard.sh`
+- optional false-positive allowlist: `.public-leak-guard-ignore` (regex lines, review-required)
+- CI enforcement in both workflow definitions (`.github/workflows/ci-build-push.yml` and `ci-build-push.yml`)
+- `make ci-check` now includes the public leak guard automatically.
+
+### Guard Severity Classes
+
+- `critical` → hard fail always (credentials, keys, source maps, private file types).
+- `protected` → fail by default unless steward-reviewed override path exists.
+- `warning` → log-only (reserved for future non-blocking heuristics).
+
+### Failure Reason Examples
+
+- `GLG-001` tracked sourcemap files detected.
+- `GLG-002` tracked private material file type detected.
+- `GLG-003` possible secret/token material detected.
+- `GLG-004` sensitive publication marker found in docs/policies.
+
+### Local Pre-Commit Hook (optional, recommended)
+
+Install once:
+
+```bash
+bash scripts/install_git_hooks.sh
+```
+
+This configures `.githooks/pre-commit` to run leak guard + JS syntax checks before commit.
+
+
+### NE-000 Authority Check API
+
+Backend now exposes a permission-aware arbitration endpoint for invariant `NE-000`:
+
+- Rule: **No state mutation without surfaced confirmation**
+- Endpoint: `POST /api/seeds/authority/verify`
+
+Example request:
+
+```json
+{
+  "txId": "tx-123",
+  "initiator": "agent",
+  "stateKey": "roamer.mode",
+  "requestedValue": "explore",
+  "surfaceAck": false
+}
+```
+
+If `surfaceAck` is `false`, the transaction is halted and a `HALT_AND_SURFACE` telemetry event is returned.
+
+### Mirror-10 Flora demo
+
+A standalone interaction prototype is available at `demos/mirror10-flora-phase-shift.html`.
+
+Run a tiny static server from repo root and open the demo:
+
+```bash
+make mirror10-demo
+# then visit http://localhost:8010/demos/mirror10-flora-phase-shift.html
+```
+
+## Public Shell, Sealed Core
+
+Before external publication, run a curated public-shell pipeline instead of publishing the full repository surface.
+
+### Build curated shell
+
+```bash
+make public-shell
+```
+
+Creates `artifacts/public-shell/` with a public-safe bundle profile.
+
+### Audit curated shell
+
+```bash
+make public-shell-audit
+```
+
+Audit checks include:
+- sealed/internal path references,
+- private-marker terms,
+- sourcemap presence.
+
+### Hostile-reader checklist (pre-public)
+
+- Read public bundle as a scraper/journalist/dev adversary.
+- Verify naming alone does not reveal sealed architecture.
+- Confirm no inward references to `backups/`, `library/`, or private runtime paths.
+- Ensure first public narrative remains singular: **world-shaped interface experiment**.

@@ -17,6 +17,8 @@ jobs:
         with:
           node-version: 20
       - run: node --check script.js
+      - run: bash scripts/verify_repo_links.sh
+      - run: bash scripts/public_leak_guard.sh
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

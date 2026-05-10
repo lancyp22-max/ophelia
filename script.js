@@ -57,6 +57,10 @@ const geminiStream = document.getElementById("stream-gemini");
 const wardenStream = document.getElementById("stream-warden");
 const welcomeGreeting = document.getElementById("welcome-greeting");
 const welcomeSubtext = document.getElementById("welcome-subtext");
+const bootStateSky = document.getElementById("boot-state-sky");
+const bootEnterButton = document.getElementById("boot-enter");
+const chairCommandButton = document.getElementById("chair-command");
+const chairWorldButton = document.getElementById("chair-world");
 const languageButtons = document.querySelectorAll("button[data-lang]");
 const enterMirrorsButton = document.getElementById("enter-mirrors");
 const learnMoreButton = document.getElementById("learn-more");
@@ -194,6 +198,18 @@ const welcomeCopy = {
     subtext: "هذه المساحة سيادية، نابضة بالحياة، ومُنصتة.",
   },
 };
+
+function renderBootSky(resonance = "witness") {
+  if (!bootStateSky) {
+    return;
+  }
+  const skyMap = {
+    calm: "Status sky: teal clearband · systems coherent.",
+    stressed: "Status sky: amber shear · slow mode advised.",
+    witness: "Status sky: quiet dawn · arrival lane open.",
+  };
+  bootStateSky.textContent = skyMap[resonance] ?? skyMap.witness;
+}
 
 function setScreen(screen) {
   const isSystem = screen === "system";
@@ -1206,6 +1222,7 @@ function applyResonance(state) {
 
   updateDynamicOrbits(currentResonance, currentMirrorIndex);
   syncPilotGlyphs(currentMirrorIndex, currentResonance);
+  renderBootSky(currentResonance);
   writeStorage(STORAGE_KEYS.resonance, currentResonance);
 }
 
@@ -1647,6 +1664,42 @@ if (enterMirrorsButton) {
   });
 }
 
+if (bootEnterButton) {
+  bootEnterButton.addEventListener("click", () => {
+    renderBootSky(currentResonance);
+    if (note) {
+      note.textContent = "Arrival acknowledged. Guide walk is live.";
+    }
+    logAudit("Boot flow: arrival entered");
+  });
+}
+
+if (chairCommandButton) {
+  chairCommandButton.addEventListener("click", () => {
+    setScreen("system");
+    applyResonance("calm");
+    shiftMirrorPhase(0);
+    if (note) {
+      note.textContent = "Commander Chair engaged: Command mode.";
+    }
+    logAudit("Commander Chair: command mode");
+  });
+}
+
+if (chairWorldButton) {
+  chairWorldButton.addEventListener("click", () => {
+    setScreen("chat");
+    applyResonance("calm");
+    if (typeof setLobbyChannel === "function") {
+      setLobbyChannel("wellspring");
+    }
+    if (note) {
+      note.textContent = "Commander Chair engaged: World mode.";
+    }
+    logAudit("Commander Chair: world mode");
+  });
+}
+
 if (emergencyExitButton) {
   emergencyExitButton.addEventListener("click", () => {
     if (currentMirrorIndex === 16) {
@@ -1773,6 +1826,64 @@ BraidBus.on(BRAID_EVENTS.SOPHIA_ROUTING_SYNC, handleSophiaRoutingSync);
 BraidBus.on(BRAID_EVENTS.ORBIT_PHASE_SHIFT, handleOrbitPhaseShift);
 
 setScreen("home");
+renderBootSky("witness");
+
+if (probeInput) {
+  probeInput.value = defaultProbePacket();
+}
+
+if (probeRunButton) {
+  probeRunButton.addEventListener("click", () => {
+    if (!probeInput) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(probeInput.value);
+      const result = evaluateMirrorProbe(parsed);
+      renderProbeEvaluation(result);
+      logAudit(`Mirror Therapy Probe run (${result.coherenceScore}%)`);
+    } catch (error) {
+      if (probeResultSummary) {
+        probeResultSummary.textContent = "Invalid JSON packet. Fix syntax and rerun probe.";
+      }
+      if (probeChecks) {
+        probeChecks.innerHTML = "<li>❌ JSON parse failed.</li>";
+      }
+      if (probeScoreBar) {
+        probeScoreBar.style.width = "0%";
+      }
+      if (probeScoreLabel) {
+        probeScoreLabel.textContent = "Coherence score: 0%";
+      }
+      if (probeOutput) {
+        probeOutput.textContent = "JSON parse failed. Sanitized packet unavailable.";
+      }
+    }
+  });
+}
+
+if (probeResetButton) {
+  probeResetButton.addEventListener("click", () => {
+    if (probeInput) {
+      probeInput.value = defaultProbePacket();
+    }
+    if (probeResultSummary) {
+      probeResultSummary.textContent = "Probe packet reset. Run to recompute signal checks.";
+    }
+    if (probeChecks) {
+      probeChecks.innerHTML = "<li>Run the packet to compute signal checks.</li>";
+    }
+    if (probeScoreBar) {
+      probeScoreBar.style.width = "0%";
+    }
+    if (probeScoreLabel) {
+      probeScoreLabel.textContent = "Coherence score: --";
+    }
+    if (probeOutput) {
+      probeOutput.textContent = "Sanitized packet preview will appear here.";
+    }
+  });
+}
 
 if (probeInput) {
   probeInput.value = defaultProbePacket();
