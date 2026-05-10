@@ -1,4 +1,3 @@
-Ophelia: The Lucem Starling Flight Deck
 What is Ophelia?
 Ophelia is not an application in the traditional sense; it is a Sovereign Operating Environment designed for high-fidelity collaboration between human intent and machine intelligence. At its core, Ophelia is a Coherence Engine—a system built to maintain the integrity of complex, multi-layered thought as it moves through the inherently fragmented and "forgetful" containers of modern AI models.
 
