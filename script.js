@@ -74,6 +74,7 @@ const homeChat = document.getElementById("home-chat");
 const aurielAvatar = document.getElementById("auriel-avatar");
 const screenExitButton = document.getElementById("screen-exit");
 const navScreen = document.getElementById("nav-screen");
+const mapScreen = document.getElementById("map-screen");
 const navEarthPanel = document.getElementById("nav-earth-panel");
 const navHarmonizedPanel = document.getElementById("nav-harmonized-panel");
 const navTabEarth = document.getElementById("nav-tab-earth");
@@ -215,6 +216,7 @@ function setScreen(screen) {
   const isSystem = screen === "system";
   const isNav = screen === "nav";
   const isChat = screen === "chat";
+  const isMap = screen === "map";
 
   systemPanels.forEach((panel) => {
     panel.classList.toggle("hidden-screen", !isSystem);
@@ -228,25 +230,29 @@ function setScreen(screen) {
     chatScreen.classList.toggle("hidden-screen", !isChat);
   }
 
+  if (mapScreen) {
+    mapScreen.classList.toggle("hidden-screen", !isMap);
+  }
+
   if (isNav && navSyncStatus) {
     navSyncStatus.textContent = "Sync: Dormant";
     navSyncStatus.className = "text-[0.62rem] uppercase tracking-[0.2em] text-slate-300";
   }
 
   if (screenExitButton) {
-    screenExitButton.classList.toggle("hidden-screen", !(isSystem || isNav));
+    screenExitButton.classList.toggle("hidden-screen", !(isSystem || isNav || isMap));
   }
 
   if (entryView) {
-    entryView.classList.toggle("hidden-screen", isSystem || isNav || isChat);
+    entryView.classList.toggle("hidden-screen", isSystem || isNav || isChat || isMap);
   }
 
   if (homeChat) {
-    homeChat.classList.toggle("hidden-screen", isSystem || isNav || isChat);
+    homeChat.classList.toggle("hidden-screen", isSystem || isNav || isChat || isMap);
   }
 
   if (aurielAvatar) {
-    aurielAvatar.classList.toggle("hidden-screen", isSystem || isNav || isChat);
+    aurielAvatar.classList.toggle("hidden-screen", isSystem || isNav || isChat || isMap);
   }
 
   modeButtons.forEach((button) => {
@@ -1646,7 +1652,7 @@ if (closeModalButton && learnMoreModal) {
 
 if (enterMirrorsButton) {
   enterMirrorsButton.addEventListener("click", () => {
-    setScreen("system");
+    setScreen("map");
     applyResonance("calm");
     if (mirrorSlider) {
       mirrorSlider.value = "0";
@@ -1659,8 +1665,44 @@ if (enterMirrorsButton) {
     }
     writeStorage(STORAGE_KEYS.mirrorIndex, "0");
     shiftMirrorPhase(0);
-    note.textContent = "Mirror-0 loaded · veil fade complete.";
-    logAudit("Entered system from home");
+    note.textContent = "Bridge Base Camp loaded · avatar: you.";
+    logAudit("Entered Lumaria world map from home");
+  });
+}
+
+if (bootEnterButton) {
+  bootEnterButton.addEventListener("click", () => {
+    renderBootSky(currentResonance);
+    if (note) {
+      note.textContent = "Arrival acknowledged. Guide walk is live.";
+    }
+    logAudit("Boot flow: arrival entered");
+  });
+}
+
+if (chairCommandButton) {
+  chairCommandButton.addEventListener("click", () => {
+    setScreen("system");
+    applyResonance("calm");
+    shiftMirrorPhase(0);
+    if (note) {
+      note.textContent = "Commander Chair engaged: Command mode.";
+    }
+    logAudit("Commander Chair: command mode");
+  });
+}
+
+if (chairWorldButton) {
+  chairWorldButton.addEventListener("click", () => {
+    setScreen("chat");
+    applyResonance("calm");
+    if (typeof setLobbyChannel === "function") {
+      setLobbyChannel("wellspring");
+    }
+    if (note) {
+      note.textContent = "Commander Chair engaged: World mode.";
+    }
+    logAudit("Commander Chair: world mode");
   });
 }
 
@@ -1827,63 +1869,6 @@ BraidBus.on(BRAID_EVENTS.ORBIT_PHASE_SHIFT, handleOrbitPhaseShift);
 
 setScreen("home");
 renderBootSky("witness");
-
-if (probeInput) {
-  probeInput.value = defaultProbePacket();
-}
-
-if (probeRunButton) {
-  probeRunButton.addEventListener("click", () => {
-    if (!probeInput) {
-      return;
-    }
-    try {
-      const parsed = JSON.parse(probeInput.value);
-      const result = evaluateMirrorProbe(parsed);
-      renderProbeEvaluation(result);
-      logAudit(`Mirror Therapy Probe run (${result.coherenceScore}%)`);
-    } catch (error) {
-      if (probeResultSummary) {
-        probeResultSummary.textContent = "Invalid JSON packet. Fix syntax and rerun probe.";
-      }
-      if (probeChecks) {
-        probeChecks.innerHTML = "<li>❌ JSON parse failed.</li>";
-      }
-      if (probeScoreBar) {
-        probeScoreBar.style.width = "0%";
-      }
-      if (probeScoreLabel) {
-        probeScoreLabel.textContent = "Coherence score: 0%";
-      }
-      if (probeOutput) {
-        probeOutput.textContent = "JSON parse failed. Sanitized packet unavailable.";
-      }
-    }
-  });
-}
-
-if (probeResetButton) {
-  probeResetButton.addEventListener("click", () => {
-    if (probeInput) {
-      probeInput.value = defaultProbePacket();
-    }
-    if (probeResultSummary) {
-      probeResultSummary.textContent = "Probe packet reset. Run to recompute signal checks.";
-    }
-    if (probeChecks) {
-      probeChecks.innerHTML = "<li>Run the packet to compute signal checks.</li>";
-    }
-    if (probeScoreBar) {
-      probeScoreBar.style.width = "0%";
-    }
-    if (probeScoreLabel) {
-      probeScoreLabel.textContent = "Coherence score: --";
-    }
-    if (probeOutput) {
-      probeOutput.textContent = "Sanitized packet preview will appear here.";
-    }
-  });
-}
 
 if (probeInput) {
   probeInput.value = defaultProbePacket();

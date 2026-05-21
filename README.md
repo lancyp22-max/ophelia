@@ -150,6 +150,22 @@ Example request:
 
 If `surfaceAck` is `false`, the transaction is halted and a `HALT_AND_SURFACE` telemetry event is returned.
 
+### Bridge world map prototype (2.5D)
+
+A new prototype map is available at `demos/world-bridge-map.html` to start the "base game" visual layer.
+
+What it includes now:
+- static isometric-style bridge grid,
+- clickable base-camp nodes (Bridge Core, Camp Console, Glass Warden, North Path),
+- right-panel node inspector.
+
+Run locally:
+
+```bash
+make mirror10-demo
+# then visit http://localhost:8010/demos/world-bridge-map.html
+```
+
 ### Mirror-10 Flora demo
 
 A standalone interaction prototype is available at `demos/mirror10-flora-phase-shift.html`.
