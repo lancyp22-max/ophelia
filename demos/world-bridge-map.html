@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ophelia World Map — Bridge Base Camp (2.5D Prototype)</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #05070d;
+      --panel: #12182a;
+      --ink: #d8e6ff;
+      --accent: #7ef0ff;
+      --accent2: #9cffb8;
+      --warn: #ffc07a;
+    }
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: radial-gradient(circle at 20% 10%, #1a2040, var(--bg)); color: var(--ink); }
+    header { padding: 14px 18px; border-bottom: 1px solid #27304d; }
+    main { display: grid; grid-template-columns: 1fr 320px; gap: 14px; padding: 14px; }
+    canvas { width: 100%; height: calc(100vh - 90px); background: linear-gradient(180deg, #10213b, #070b14); border: 1px solid #27304d; border-radius: 12px; }
+    aside { background: var(--panel); border: 1px solid #27304d; border-radius: 12px; padding: 12px; }
+    h1 { margin: 0; font-size: 18px; }
+    .meta { opacity: 0.85; font-size: 13px; margin-top: 6px; }
+    .pill { display:inline-block; padding:2px 8px; border:1px solid #36507c; border-radius:999px; font-size:12px; margin-right:6px; }
+    .node { margin: 10px 0; padding: 10px; border: 1px solid #304268; border-radius: 8px; }
+    .node.active { border-color: var(--accent); box-shadow: 0 0 0 1px #12233f inset; }
+    small { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Bridge Meetpoint — 2.5D Base Game Prototype</h1>
+    <div class="meta">
+      <span class="pill">Phase: static readable map</span>
+      <span class="pill">Input: local node schema</span>
+      <span class="pill">Goal: click-to-inspect tools</span>
+    </div>
+  </header>
+  <main>
+    <canvas id="map" width="1200" height="780" aria-label="world-map-canvas"></canvas>
+    <aside>
+      <strong>Node Inspector</strong>
+      <p id="hint"><small>Click a map object to inspect.</small></p>
+      <div id="details"></div>
+    </aside>
+  </main>
+<script>
+const nodes = [
+  { id: "bridge-core", label: "Bridge Core", type: "entry", color: "#7ef0ff", x: 0, y: 0, z: 0, text: "Arrival, calibration, handshake, pace check." },
+  { id: "camp-console", label: "Camp Console", type: "tool", color: "#9cffb8", x: 2, y: 1, z: 0, text: "Opens commit/CI workflows and map logs." },
+  { id: "warden-lens", label: "Glass Warden", type: "safety", color: "#ffc07a", x: -2, y: 1, z: 0, text: "Visualizes authority violations (NE-000)." },
+  { id: "north-path", label: "North Path", type: "route", color: "#d8e6ff", x: 0, y: -2, z: 0, text: "Future expansion to full Lumaria nodes." }
+];
+
+const state = { selected: null, hover: null };
+const c = document.getElementById("map");
+const ctx = c.getContext("2d");
+const details = document.getElementById("details");
+const hint = document.getElementById("hint");
+
+function isoToScreen(x, y, z = 0) {
+  const tileW = 96;
+  const tileH = 48;
+  return {
+    x: c.width / 2 + (x - y) * tileW / 2,
+    y: c.height / 2 + (x + y) * tileH / 2 - z * 24
+  };
+}
+
+function drawDiamond(x, y, w, h, fill, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.moveTo(x, y - h / 2);
+  ctx.lineTo(x + w / 2, y);
+  ctx.lineTo(x, y + h / 2);
+  ctx.lineTo(x - w / 2, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawMap() {
+  ctx.clearRect(0, 0, c.width, c.height);
+  for (let gx = -4; gx <= 4; gx++) {
+    for (let gy = -4; gy <= 4; gy++) {
+      const p = isoToScreen(gx, gy, 0);
+      drawDiamond(p.x, p.y, 96, 48, (gx + gy) % 2 === 0 ? "#15243e" : "#122036", 0.75);
+    }
+  }
+
+  nodes.forEach((n) => {
+    const p = isoToScreen(n.x, n.y, n.z);
+    const active = state.selected?.id === n.id || state.hover?.id === n.id;
+    drawDiamond(p.x, p.y, 82, 40, n.color, active ? 1 : 0.75);
+    ctx.fillStyle = "#03101d";
+    ctx.fillRect(p.x - 2, p.y - 18, 4, 18);
+    ctx.fillStyle = "#dff6ff";
+    ctx.font = "12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(n.label, p.x, p.y - 26);
+    n.hit = { x: p.x - 41, y: p.y - 20, w: 82, h: 40 };
+  });
+}
+
+function pickNode(mx, my) {
+  return nodes.find((n) => mx >= n.hit.x && mx <= n.hit.x + n.hit.w && my >= n.hit.y && my <= n.hit.y + n.hit.h) || null;
+}
+
+function renderDetails(node) {
+  if (!node) {
+    details.innerHTML = "";
+    hint.innerHTML = "<small>Click a map object to inspect.</small>";
+    return;
+  }
+  hint.textContent = "";
+  details.innerHTML = `
+    <div class="node active">
+      <strong>${node.label}</strong><br />
+      <small>id: ${node.id}</small><br />
+      <small>type: ${node.type}</small>
+      <p>${node.text}</p>
+      <small>position: (${node.x}, ${node.y}, ${node.z})</small>
+    </div>`;
+}
+
+c.addEventListener("mousemove", (e) => {
+  const r = c.getBoundingClientRect();
+  state.hover = pickNode((e.clientX - r.left) * (c.width / r.width), (e.clientY - r.top) * (c.height / r.height));
+  drawMap();
+});
+
+c.addEventListener("click", (e) => {
+  const r = c.getBoundingClientRect();
+  state.selected = pickNode((e.clientX - r.left) * (c.width / r.width), (e.clientY - r.top) * (c.height / r.height));
+  drawMap();
+  renderDetails(state.selected);
+});
+
+drawMap();
+renderDetails(null);
+</script>
+</body>
+</html>
